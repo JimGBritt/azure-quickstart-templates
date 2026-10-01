@@ -1,328 +1,465 @@
-# Azure Resource Manager QuickStart Templates
+# Azure Resource Manager Templates - Best Practices Guide
 
-This repository contains all currently available Azure Resource Manager templates contributed by the community. A searchable template index is maintained at https://azure.microsoft.com/en-us/documentation/templates/.
-The following information is relevant to get started with contributing to this repository.
+This document describes the best practices for reviewing and troubleshooting Azure Resource Manager (ARM) Templates, both bicep and JSON, including Azure Applications for the Azure Marketplace. This document is intended to help you design effective templates or troubleshoot existing templates for getting applications certified for the Azure Marketplace and Azure QuickStart templates.  
 
-+ [**Contribution guide**](/1-CONTRIBUTION-GUIDE/README.md#contribution-guide). Describes the minimal guidelines for contributing.
-+ [**Best practices**](/1-CONTRIBUTION-GUIDE/best-practices.md#best-practices). Best practices for improving the quality of your template design.
-+ [**Git tutorial**](/1-CONTRIBUTION-GUIDE/git-tutorial.md#git-tutorial). Step by step to get you started with Git.
+This repository contains all currently available Azure Resource Manager templates contributed by the community. A searchable template index is maintained at <https://azure.microsoft.com/documentation/templates/>.
 
-You are currently reading the best practices.
+To contribute a sample to this repo, you must read and follow these best practices as well as the guidelines listed in the [**Contribution guide**](/1-CONTRIBUTION-GUIDE/README.md#contribution-guide).  
 
-## Best practices
+## General Guidelines for ARM Templates  
 
-+ It is a good practice to pass your template through a JSON linter to remove extraneous commas, parenthesis, brackets that may break the "Deploy to Azure" experience. Try http://jsonlint.com/ or a linter package for your favorite editing environment (Visual Studio Code, Atom, Sublime Text, Visual Studio etc.)
-+ It's also a good idea to format your JSON for better readability. You can use a JSON formatter package for your local editor or [format online using this link](https://www.bing.com/search?q=json+formatter).
-+ A starter template is provided [here](/100-STARTER-TEMPLATE-with-VALIDATION) for you to follow.
+This section describes guidelines and best practices for clear and accurate templates. Some of these guidelines are suggestions for consistency and accuracy, however, others are required for publishing your templates on Azure. These requirements are called out when applicable.  
 
-The following guidelines are relevant to the main deployment template and nested templates (if used).
+### Code Authoring
 
-1. Template parameters should follow **camelCasing**.
-1. Minimize parameters whenever possible, this allows for a good "hello world" experience where the user doesn't have to answer a number of questions to complete a deployment.  If you can use a variable or a literal, do so.  Users who want to parameterize something will likely have the skills to do so. Only provide parameters for:
- + Things that are globally unique (e.g. website name).  These are usually endpoints that the user may need to be aware of. However, in many cases a unique name can be generated automatically by using the [uniqueString()](https://azure.microsoft.com/en-us/documentation/articles/resource-group-template-functions/#uniquestring) template language function.
- + Other things a user must know to complete a workflow (e.g. admin user name on a VM)
- + Secrets (e.g. admin password on a VM)
- + If you must include a parameter, define a defaultValue, unless the parameter is used for a password.
-1. Every parameter in the template should have the **lower-case description** tag specified using the metadata property. This looks like below
+Ensure that your code is properly formatted.  For working with Azure Resource Manager Templates, Visual Studio Code is a free editor that has an extension for [bicep](https://marketplace.visualstudio.com/items?itemName=ms-azuretools.vscode-bicep) and [JSON](https://marketplace.visualstudio.com/items?itemName=msazurermtools.azurerm-vscode-tools) designed to help author templates.
 
- ```
- "parameters": {
-   "storageAccountType": {
-     "type": "string",
-     "metadata": {
-     "description": "The type of the new storage account created to store the VM disks"
-     }
-   }
- }
- ```
- 
-1. Do not use a parameter to specify the **location**. Use the location property of the resourceGroup instead. By using the **resourceGroup().location** expression for all your resources, the resources in the template will automatically be deployed in the same location as the resource group.
+### Sample Application Files
 
- ```
- "resources": [
-   {
-     "name": "[variables('storageAccountName')]",
-     "type": "Microsoft.Storage/storageAccounts",
-     "apiVersion": "2015-06-15",
-     "location": "[resourceGroup().location]",
-     "comments": "This storage account is used to store the VM disks",
-     "properties": {
-       "accountType": "Standard_GRS"
-     }
-   }
- ]
- ```
- + If you must use a location parameter, share parameters whenever possible - e.g. the location parameter should be shared among resources that must or are likely to be in the same location.
+An Azure Application or QuickStart sample must contain, at a minimum, the following files:
 
-1. Name **variables** using this scheme **templateScenarioResourceName** (e.g. simpleLinuxVMVNET, userRoutesNSG, elasticsearchPublicIP etc.) that describe the scenario rather. This ensures when a user browses all the resources in the Portal there aren't a bunch of resources with the same name (e.g. myVNET, myPublicIP, myNSG)
+| Artifact       | Azure Marketplace file         | Azure QuickStarts file |
+|:---------------------------------------- |:----------------------------------------------------- |:---------------------------------------- |
+| UI Definition File    | **createUiDefinition.json** | [optional] |  
+| Template File | **mainTemplate.json** | **main.bicep** or **azuredeploy.json** |  
+| Parameters File (Public) | n/a | **azuredeploy.parameters.json**  |  
+| Parameters File (US Gov) | n/a | **azuredeploy.parameters.us.json** |
+| Read Me File | Not required | **README.md** |  
+| QuickStart Metadata | n/a | **metadata.json** |
+| Nested templates | In a **nestedtemplates** subfolder | In a **nestedtemplates** subfolder for **JSON** or a **modules** folder for **bicep** |  
+| Configuration Scripts | In a **scripts** subfolder | In a **scripts** subfolder |  
 
-1. Do not create a parameter for a **storage account name**. Storage account names need to be lower case and can't contain hyphens (-) in addition to other domain name restrictions. A storage account has a limit of 24 characters. They also need to be globally unique. To prevent any validation issue configure a variables (using the expression **uniqueString** and a static value **storage**). Storage accounts with a common prefix (uniqueString) will not get clustered on the same racks.
-	
- ```
- "variables": {
- 	"storageAccountName": "[concat(uniqueString(resourceGroup().id),'storage')]"
- }
- ```
- 
- Note: Templates should consider storage accounts throughput constraints and deploy across multiple storage accounts where necessary. Templates should distribute virtual machine disks across multiple storage accounts to avoid platform throttling.
+## Parameters
 
-1. For many resources with a resource group, a name is not often relevant and using something a hard coded string "availabilitySet" may be acceptable.  You can also use variables for the name of a resource and generate names for resources with globally unique names. Use **displayName** tags for a "friendly" name in the JSON outline view.  This should ideally match the name property value or property name.
+Parameters should be used for collecting input to customize the deployment.  Avoid adding too many parameters to a template as each parameter creates more opportunity for errors.  Additionally, many properties values can be intuitively assigned by using relationships between resources or understanding the nature of the workload.  For example the name of a `virtualMachine` may be determined by it's role in a workload.  The `networkInterfaces` assigned to the VM can be prefixed with the name of the VM.
 
- ```
- "resources": [
-   {
-     "name": "availabilitySet",
-     "type": "Microsoft.Compute/availabilitySets",
-     "apiVersion": "2015-06-15",
-     "location": "[resourceGroup().location]",
-     "tags": { "displayName": "appTierAS" },
-     "properties": {
-        ...
-     }
-   }
- ]
- ```
-	
-1. Specifying a lower-case **comments** property for each resource in the template helps other contributors to understand the purpose of the resource.
+Some examples of property values that should be parameterized, unless otherwise noted defaultValues may be used to recommend or simplify the deployment.
 
- ```	
- "resources": [
-   {
-     "name": "[variables('storageAccountName')]",
-     "type": "Microsoft.Storage/storageAccounts",
-     "apiVersion": "2015-06-15",
-     "location": "[resourceGroup().location]",
-     "comments": "This storage account is used to store the VM disks",
-     "properties": {
-       "accountType": "Standard_GRS"
-     }
-   }
- ]
- ```
+* credentials - **usernames, passwords, secrets** should always be parameterized and never use defaultValues
+* **endpoints** or **prefixes**, particularly any endpoint consumed by humans (as opposed to automation)
+* **SKUs** or **sizes** that affect availability in a cloud or region and the cost and performance of a workload
+* resource **locations** except for samples that contain resources that do not require a location - multiple location parameters may be used where appropriate
 
-1. If you use a **public endpoint** in your template (e.g. blob storage public endpoint), **do not hardcode** the namespace. Use the **reference** function to retrieve the namespace dynamically. This allows you to deploy the template to different public namespace environments, without the requirement to change the endpoint in the template manually. Use the following reference to specify the osDisk. Define a variable for the storageAccountName (as specified in the previous example), a variable for the vmStorageAccountContainerName and a variable for the OSDiskName. Set the apiVersion to the same version you are using for the storageAccount in your template.
+Other requirements for parameters:
 
- ```
- "osDisk": {"name": "osdisk","vhd": {"uri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', 
- variables('storageAccountName')), '2015-06-15').primaryEndpoints.blob, variables('vmStorageAccountContainerName'),
- '/',variables('OSDiskName'),'.vhd')]"}}
- ```
+* All parameters should have a description (see sample below)
+* Use constraints where possible, allowed values, min/max
+* Templates must have a parameter named `location` for the primary location of resources.
+  * The default value of this parameter must be `[resourceGroup().location]`
+  * The location parameter must not contain `allowedValues`, as these will not be applicable to all clouds
+* For resources that are not available in all locations, use a separate parameter for the location of these resources.
+* Use additional location parameters for applications that are multi-region and selected by the user.
+* Do NOT use allowedValues for list of things that are meant to be inclusive (e.g. all VM SKUs) only for exclusive scenarios.  Over using allowedValues will block deployment in some scenarios and create a maintenance issue when the inclusion list changes.
+* Use defaultValues whenever possible – this creates a simpler and flexible deployment experience.  Default values are not required for modules or nested templates.
+* Any `defaultValue` supplied for a parameter must be valid for all users in the default deployment configuration.
+  * Do not provide default values for user names, passwords (or any secure parameter) or anything that will increase the attack surface area of the application
+  * Template expressions can be used to create default values, as shown in the following example:
 
- If you have other values in your template configured with a public namespace, change these to reflect the same reference function. For example the storageUri property of the virtual machine diagnosticsProfile. Set the apiVersion to the same version you are using for the corresponding resource in your template.
+```bicep
+@description('Name of the storageAccount')
+param storageAccountName string = 'storage${uniqueString(resourceGroup().id)}'
 
- ```
- "diagnosticsProfile": {"bootDiagnostics": {"enabled": "true","storageUri":
- "[reference(concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName')), 
- '2015-06-15').primaryEndpoints.blob]"}}
- ```
- 
- You can also **reference** an **existing storage account** in a different resource group. Set the apiVersion to the same version you are using for the existing storageAccount.
+@description('Number of VMs')
+@min(2)
+@max(8)
+param vmCount int = 2
+```
 
- ```
- "osDisk": {"name": "osdisk", "vhd": {"uri":"[concat(reference(resourceId(parameters('existingResourceGroup'), 
- 'Microsoft.Storage/storageAccounts/', parameters('existingStorageAccountName')), '2015-06-15').primaryEndpoints.blob, 
- variables('vmStorageAccountContainerName'),
- '/',variables('OSDiskName'),'.vhd')]"}}
- ```
- 
-10. **Passwords** must be passed into parameters of type **securestring**. Do not specify a defaultValue for a parameter that is used for a password or an SSH key. Passwords must also be passed to **customScriptExtension** using the **commandToExecute** property in protectedSettings.
+```json
+    "storageAccountName": {
+      "type": "string",
+      "defaultValue": "[concat('storage', uniqueString(resourceGroup().id))]",
+      "metadata": {
+        "description": "Name of the storage account"
+      }
+    },
+    "vmCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "minValue": 2,
+      "maxValue": 8,
+      "metadata": {
+        "description": "Name of the storage account"
+      }
+    }
+```
 
- ```
- "properties": {
- 	"publisher": "Microsoft.OSTCExtensions",
- 	"type": "CustomScriptForLinux",
- 	"settings": {
- 		"fileUris": [
- 			"[concat(variables('template').assets, '/lamp-app/install_lamp.sh')]"
- 		]
- 	},
- 	"protectedSettings": {
- 		"commandToExecute": "[concat('sh install_lamp.sh ', parameters('mySqlPassword'))]"
- 	}
- }
- ```
+## Variables
 
- Note: In order to ensure that secrets which are passed as parameters to virtualMachines/extensions are encrypted, the protectedSettings property of the relevant extensions must be used.
- 
-11. Using tags to add metadata to resources allows you to add additional information about your resources. A good use case for tags is adding metadata to a resource for billing detail purposes. 
+* Use variables for values that are used multiple times throughout a template or for creating **complex** expressions.
+* Variables must not be used for apiVersions.  The apiVersion affects the shape of the resource and often cannot be updated without updating all the resources that use a particular version.
+* Use a loop for creating repeating patterns in variables.
+* Remove all unused variables from all templates.
+* Avoid concatenating variable names for conditional scenarios – use template language expressions and dictionary objects. For more information, see [https://docs.microsoft.com/azure/azure-resource-manager/resource-group-template-functions](https://docs.microsoft.com/azure/azure-resource-manager/resource-group-template-functions)
 
-12. You can group variables into complex objects. You can reference a value from a complex object in the format variable.subentry (e.g. `"[variables('storage').storageAccounts.type]"`). Grouping variables helps you keep track of related variables and improves readability of the template.
+## Naming Parameters & Variables
 
- ```
- "variables": {
- 	"storage": {
- 		"storageAccounts": {
- 		"name": "[concat(uniqueString(resourceGroup().id),'storage')]",
- 		"type": "Standard_LRS"
- 		}
- 	}
- },
- "resources": [
-	 {
-	 "type": "Microsoft.Storage/storageAccounts",
-	 "name": "[variables('storage').storageAccounts.name]",
-	 "apiVersion": "[2015-06-15]",
-	 "location": "[resourceGroup().location]",
-	 "properties": {
-	 	"accountType": "[variables('storage').storageAccounts.type]"
-	 }
- 	 }
- ]
- ```
+Parameters and variables should be named according to their use on specific properties where applicable.  For example a parameter used for the name property on a storageAccount would be named `storageAccountName` rather than simple `name` or `storageAccount`.  A parameter used for the size of a VM should be `vmSize` rather than `size`.  As well, parameters, variables and outputs that related to a specific resource should use the resource's symbolic name a a prefix.
 
- Note: A complex object cannot contain an expression that references a value from a complex object. Define a separate variable for this purpose.
+camelCase should be used for naming of symbols (parameters, variables, resources, outputs, etc.).
 
-13. The **domainNameLabel** property for publicIPAddresses must be **unique**. domainNameLabel is required to be betweeen 3 and 63 characters long and to follow the rules specified by this regular expression ^[a-z][a-z0-9-]{1,61}[a-z0-9]$. As the uniqueString function will generate a string that is 13 characters long in the example below it is presumed that the dnsPrefixString prefix string has been checked to be no more than 50 characters long and to conform to those rules.
+## Resources  
 
- ```
- "parameters": {
- 	"dnsPrefixString": {
- 		"type": "string",
- 		"maxLength": 50,
-		"metadata": {
- 			"description": "DNS Label for the Public IP. Must be lowercase. It should match with the following regular expression: ^[a-z][a-z0-9-]{1,61}[a-z0-9]$ or it will raise an error."
- 		}
- 	}
- },
- "variables": {
- 	"dnsPrefix": "[concat(parameters('dnsPrefixString'),uniquestring(resourceGroup().id))]"
- }
- ```
+All resources share a common set of properties and as such these guidelines will apply to all resources in an application.  
 
-14. If a template creates any new **publicIPAddresses** then it should have an **output** section that provides details of the IP address and fully qualified domain created to easily retrieve these details after deployment. 
+### Sort Order of Properties  
 
- ```
- "outputs": {
- "fqdn": {
- 	"value": "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName')),providers('Microsoft.Network', 'publicIPAddresses').apiVersions[0]).dnsSettings.fqdn]",
- 	"type": "string"
- },
- "ipaddress": {
- 	"value": "[reference(resourceId('Microsoft.Network/publicIPAddresses',parameters('publicIPAddressName')),providers('Microsoft.Network', 'publicIPAddresses').apiVersions[0]).ipAddress]",
-  	"type": "string"
- }
+ Although, not required by the platform, a consistent sort order of properties and elements in a template creates the ideal experience for reasoning over templates in the Azure ecosystem.   For example, parameters define the input contract for a deployment and should be at the top of the template.  Outputs are the outgoing contract and should be collected at the end of a file.  Additionally, it is easier to find an element when templates are authored using a consistent pattern.
+
+Top-level template properties must be in the following order:
+
+```bicep
+targetScope '...'
+metadata '...'
+param '...'
+var '...'
+resource // (existing resources collected together)
+resource/module // (new resources)
+output '...'
+```
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/...",
+  "contentVersion": "1.0.0.0",
+  "apiProfile": "...",
+  "parameters": {},
+  "functions": {},
+  "variables": {},
+  "resources": [],
+  "outputs": {},
 }
 ```
 
-15. publicIPAddresses assigned to a Virtual Machine instance should only be used when these are required for application purposes, for connectivity to the resources for debug, management or administrative purposes either inboundNatRules, virtualNetworkGateways or a jumpbox should be used.
+It is recommended that the resources be sorted by deployment order (as applicable) to convey the intent of the orchestration.
 
-## Single template or nested templates
+Within resources, the common properties should be authored consistently to provide for understandability and consumption of the code.  
+**Note:** Any other properties not listed here should be placed before the properties object for the resource.
 
-It is obvious to create a single deployment template for deploying a single resource. Nested templates are common for more advanced scenarios. The following section is by no means a hard requirement, but more of a guidance to help you decide between a single template or a decomposed nested template design. 
-
-* Create a single template for a single tier application
-* Create a nested templates deployment for a multitier application
-* Use nested templates for conditional deployment
-
-### Samples that contain extra artifacts (Custom Scripts, nested templates, etc)
-
-When samples contain scripts, templates or other artifacts that need to be made available during deployment, using the standard parameters for staging those artifacts will enable command line deployment with the scripts provided at the root of the repository.  This allows the template to be used in a variety of workflows without changing the templates or default parameters and the artifacts will be staged to a private location, rather than the public GitHub URI.
-
-First, define two standard parameters:
-
-* _artifactsLocation - this is the base URI where all artifacts for the deployment will be staged.  The default value should be the samples folder so that the sample can be easily deployed in scenarios where a private location is not required.
-* _artifactsocationSasToken - this is the sasToken required to access _artifactsLocation.  The default value should be "" for scenarios where the _artifactsLocation is not secured, for example, the raw GitHub URI.
-
-```
-  "parameters": {
-      "_artifactsLocation": {
-          "type": "string",
-          "metadata": {
-              "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
-          },
-          "defaultValue": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/201-vm-custom-script-windows/"
-      },
-      "_artifactsLocationSasToken": {
-          "type": "securestring",
-          "metadata": {
-              "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated."
-          },
-          "defaultValue": ""
-      }
-  },
-
-```
-In this example, the custom script extension can be authored using a common pattern that can be applied to all resources that need staged artifacts as well as applied to all samples.
-
-```
-  "properties": {
-      "publisher": "Microsoft.Compute",
-      "type": "CustomScriptExtension",
-      "typeHandlerVersion": "1.8",
-      "autoUpgradeMinorVersion": true,
-      "settings": {
-      "fileUris": [
-          "[concat(parameters('_artifactsLocation'), '/', variables('ScriptFolder'), '/', variables('ScriptFileName'), parameters('_artifactsLocationSasToken'))]"
-        ],
-      "commandToExecute": "[concat('powershell -ExecutionPolicy Unrestricted -File ', variables('ScriptFolder'), '/', variables('ScriptFileName'))]"
-        }
-  }
-``` 
-
-### Nested templates
-
-Nested templates that link to templates within the same sample can be authored using the same pattern described above for scripts.
-
-```
-  "resources": [
-    {
-      "name": "shared",
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2015-01-01",
-      "properties": {
-        "mode": "Incremental",
-        "templateLink": {
-          "uri": "[concat(parameters('_artifactsLocation'), '/', variables('nestedTemplateFolder'), '/', variables('nestedTemplateFileName'), parameters('_artifactsLocationSasToken'))]",
-          "contentVersion": "1.0.0.0"
-        }
-      }
-    }
-  ]
+```bicep
+@description
+@batchSize
+resource foo
+  parent
+  scope
+  name
+  location/extendedLocation
+  zones
+  sku
+  kind
+  scale
+  plan
+  identity
+  dependsOn
+  tags
+  properties
 ```
 
-
-When authoring a template that references another sample, define a complex object variable in the azuredeploy.json that contains the absolute URI of the repository folder. Add a relative path entry in that variable for each nested template you are using in your deployment. This gives quick overview of the nested templates referenced in your resources. Store all nested templates in the **nestedtemplates** folder. The templatelink in the resource combines the absolute URI with the relative path. When you fork a repository you only need to update the absolute URI in the azuredeploy.json file. 
-
-```
-"variables": {
-  "template": {
-    "base": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-create-availability-set",
-    "shared": "nestedtemplates/sharedresources.json"
-  }
-},
+```json
 "resources": [
-  {
-    "name": "shared",
-    "type": "Microsoft.Resources/deployments",
-    "apiVersion": "2015-01-01",
-    "properties": {
-      "mode": "Incremental",
-      "templateLink": {
-        "uri": "[concat(variables('template').base, variables('template').shared)]",
-        "contentVersion": "1.0.0.0"
+    {
+        "comments": "if any",
+        "condition": true,
+        "scope": "% parent scope %",
+        "type": "Microsoft.Compute/virtualMachines",
+        "apiVersion": "2017-12-01",
+        "name": "[concat(parameters('virtualMachineName'), copyIndex(1))]",
+        "location": "[parameters('location')]",
+        "zones": [],
+        "sku": {},
+        "kind": "",
+        "scale": "",
+        "plan": {},
+        "identity": {},
+        "copy": {
+            "name": "vmLoop",
+            "count": "[parameters('numberOfVMs')]"
+        },
+        "dependsOn": [
+            "nicLoop"
+        ],
+        "tags": {},
+        "properties": {}
+    }
+]
+```
+
+### Empty and Null Properties
+
+All empty or null properties that are not required should be excluded from the template samples.  This includes empty objects {}, arrays [], strings "", and any property that has a null value.  The exceptions to this rule are the top-level JSON template properties: parameters, variables, functions, resources and outputs.
+
+### dependsOn  
+
+Deployment sequence dependencies can be specified by using the dependsOn property.  Dependencies are only allowed for resources that are deployed within the same template. They are not needed for existing resources, and for nested deployments or modules, the dependency is created on the deployment resource or module itself.
+The value of a dependency in JSON is simply the name of a resource or copy loop.  In bicep it is the symbolic reference to the resource.
+
+```bicep
+    dependsOn: [
+        storageAccount
+    ]
+```
+
+```json
+        "dependsOn": [
+        "nicLoop",
+        "[parameters('sqlServerName')]"
+      ],
+```  
+
+A full `resourceId` can also be used for the dependency in JSON but is only necessary when two or more resources share the same name (which should be avoided).  
+
+Conditional resources are automatically removed from the dependency graph when not deployed.  Authoring these dependencies can be done as if the resource will always be deployed.  
+
+### resourceIds
+
+Resource IDs must use the symbolic reference e.g. `storageAccount.id` when possible otherwise the `resourceId()` must be used.  The following code shows an example:  
+
+```bicep
+  properties: {
+    subnet: {
+      id: subnet.id
+    }
+  }      
+```
+
+```json
+"properties": {
+    "subnet": {
+        "id": "[resourceId(parameters('virtualNetworkResourceGroupName'), 'Microsoft.Network/virtualNetworks/subnets/', parameters('virtualNetworkName'), parameters('subnetName'))]"
+    }
+}
+```  
+
+### Referencing Resource and Environment Properties
+
+Any reference to a property of a resource must be done using the `reference()` function in JSON.  In bicep, resource properties may be referenced using the property name on the symbolic name of the resource, e.g. `managedIdentity.properties.principalId`.  Hard-coding values may cause failures when templates are used in other subscriptions, tenants or clouds, or when changes are made in the original cloud.  Environment properties, such as service endpoints can be retrieved using the `environment()` function.  
+
+Some examples:
+
+* Endpoints or URIs for an Azure resource (storage, web, publicIp)
+* Virtual Network IP address information for subnets, load balancers, or gateways
+* Account keys
+* Public endpoints, such as a blob storage public endpoint, should use `reference()` or a symbolic reference to retrieve the namespace dynamically.
+* Disks used for virtual machines (VMs) should use managed disks for the OS and data disks.  For boot diagnostics, the `storageUri` must be retrieved using a reference. The following example shows how to use the reference function for the `storageUri`.
+
+```bicep
+diagnosticsProfile: {
+  bootDiagnostics: {
+    enabled: true,
+      storageUri: diagStorageAccount.properties.primaryEndpoints['blob']
+      }
+}
+
+```json
+"diagnosticsProfile": {
+  "bootDiagnostics": {
+    "enabled": true,
+      "storageUri": "[reference(variables('diagStorageAccountName'), '2017-10-01').primaryEndpoints['blob']]"
+      }
+}
+```
+
+* To reference an existing resource (or one not defined in the same template), a full `resourceId` must be supplied to the `reference()` function:
+
+```json
+"diagnosticsProfile": {
+  "bootDiagnostics": {
+    "enabled": true,
+      "storageUri": "[reference(resourceId(parameters('storageAccountResourceGroup'), 'Microsoft.Storage/storageAccounts', variables('diagStorageAccountName')), '2017-10-01').primaryEndpoints['blob']]"
+      }
+}
+```
+
+* Other values in a template configured with a public endpoint, must use the reference function.  
+
+* All resources should use the `parameters('location')` expression for the `location` property for all resources.  Other expressions may be used for resources that need to be placed in alternate locations, for example a geo-redundant application.  Location values should not be hard-coded or use `resourceGroup().location` directly for the location property.  Required parameter definition:
+
+```bicep
+@description('Location for all resources')
+param location string = resourceGroup().location
+```
+
+```json
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
       }
     }
+```  
+
+* A literal value must not be used for all or part of an endpoint, for example, the following is **never** allowed:
+
+```bicep
+hostNames: [
+  '${webJobName}.azurewebsites.net'
+]
+```
+
+```json
+"hostNames": [
+  "[concat(parameters('webjobName'),'.azurewebsites.net')]"
+],
+```
+
+Rather. the `environment()` function should be used to retrieve the endpoint information.  If the endpoint information is not provided in the `environment()` function, a parameter should be used to provide the value.
+
+## Deployment Artifacts (Nested Templates, Scripts)
+
+Deployment artifacts are any files, in addition to the mainTemplate.json/azuredeploy.json/main.bicep and createUIDefinition.json files that are needed to complete a deployment.  For example, JSON nested templates, configuration scripts or zip files.  The following guidelines should be used when creating a solution with deployment artifacts:
+
+* **mainTemplate.json/azuredeploy.json/main.bicep** and **createUIDefinition.json** must be in the root of the folder.
+* Additional artifacts should also be stored in subfolders.  
+  * Additional templates should be stored in the **nestedtemplates** folder for JSON or the **modules** folder for bicep.
+  * Scripts should be stored in the **scripts** folder.  
+* You do not have to use the folder names prescribed above, if a more appropriate or descriptive name is appropriate.  Just don't put everything in the root.
+
+NOTE: if your application uses the CustomScript extension for Windows – place configuration scripts and other artifacts in the **/** (root) folder rather than the **/scripts** subfolder.  
+
+When samples contain scripts, templates or other artifacts that need to be made available during deployment, you will need to stage those artifacts to enable a consistent deployment experience throughout the development and test lifecycle, including command line deployment with the scripts provided at the root of the repository.  
+To do this you must define two standard parameters:
+
+* **_artifactsLocation** - The base URI where all artifacts for the deployment will be staged.  The `defaultValue` must be specified as shown below and include a trailing slash when providing a value for the parameter.
+* **_artifactsLocationSasToken** - The sasToken required to access _artifactsLocation. The default value should be an empty string "" for scenarios where the `_artifactsLocation` is not secured, such as the raw GitHub URI for a public repo. The following code shows an example:
+
+```bicep
+@description('The base URI where artifacts required by this template are located including a trailing \'/\'')
+param _artifactsLocation string = deployment().properties.templateLink.uri
+
+@secure()
+@description('The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured.')
+param _artifactsLocationSasToken string = ''
+```
+
+```json
+"parameters": {
+    "_artifactsLocation": {
+        "type": "string",
+        "metadata": {
+            "description": "The base URI where artifacts required by this template are located including a trailing '/'"
+        },
+        "defaultValue": "[deployment().properties.templateLink.uri]"
+    },
+    "_artifactsLocationSasToken": {
+        "type": "securestring",
+        "metadata": {
+            "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated. Use the defaultValue if the staging location is not secured."
+        },
+        "defaultValue": ""
+    }
+},
+```
+
+### Creating URIs
+
+After the parameters are added to the template all URIs must be created using the `uri()` function.
+
+```bicep
+var scriptFileUri = uri(_artifactsLocation, 'scripts/configuration.sh${_artifactsLocationSasToken}')
+```
+
+```json
+"variables": {
+        "scriptFileUri": "[uri(parameters('_artifactsLocation'), concat('scripts/configuration.sh', parameters('_artifactsLocationSasToken')))]",
+        "nestedtemplateUri": "[uri(parameters('_artifactsLocation'), concat('nestedtemplates/jumpbox.json', parameters('_artifactsLocationSasToken')))]"
+    },
+```
+
+## VM Image References & Disks
+
+* All `imageReference` objects for virtual machines or virtual machine scale sets must use images that are available in the Azure Marketplace, or core platform images. Custom images cannot be used.  
+* An imageReference using an image from the Azure Marketplace cannot be a preview or staged version of the image in production deployments.  
+* An imageReference using an image from the Azure Marketplace must also include information about the image in the plan properties of the virtual machine object.  
+
+The following code provides an example:
+
+```bicep
+resource windowsVM 'Microsoft.Compute/virtualMachines@2020-12-01' = {
+  name: 'name'
+  location: location
+  plan: {
+    name: 'ContosoSKU'
+    publisher: 'Contoso'
+    product: 'ContosoProduct'
+  }
+  properties: {
+    storageProfile: {
+      imageReference: {
+        publisher: 'Contoso'
+        offer: 'ContosoProduct'
+        sku: 'ContosoSKU'
+        version: 'latest'
+      }
+    }
+  ...
+}
+
+```
+
+```json
+{
+  "apiVersion": "2017-12-01",
+  "type": "Microsoft.Compute/virtualMachines",
+  "name": "[parameters('vmName')]",
+  "location": "[parameters('location')]",
+  "plan": {
+    "name": "ContosoSKU",
+    "publisher":"Contoso",
+    "product":"ContosoProduct"
+  },
+  "properties": {
+    "storageProfile": {
+      "imageReference": {
+      "publisher": "Contoso",
+        "offer": "ContosoProduct",
+        "sku": "ContosoSKU",
+        "version": "latest"
+      }
+      ...
+    }
+    ...  
+  }
+}
+```
+
+* If a template contains an `imageReference` using an platform image, the `version` property must be `latest`.  The following code shows an example.
+
+### VM Disks
+
+* OS Disks and Data Disks must use implicit managed disks except for QuickStart samples showing the use of explicit disks.  An explicit disk is a disk where the resource is explicitly defined in the template.
+
+```bicep
+osDisk: {
+  name: 'nameIsOptional'
+  caching: 'ReadWrite'
+  createOption: 'FromImage'
+}
+dataDisks: [
+  {
+    name: 'optional'
+    diskSizeGB: sizeOfDiskInGB
+    lun: 0
+    createOption: 'Empty'
   }
 ]
 ```
 
+```json
+    "osDisk": {
+        "caching": "ReadWrite",
+        "createOption": "FromImage"
+    },
+    "dataDisks": [
+        {
+            "name": "datadisk1",
+            "diskSizeGB": "[variables('sizeOfDiskInGB')]",
+            "lun": 0,
+            "createOption": "Empty"
+        }
+   ]
+```  
 
-_**Note:** Using this approach will still require pulling the dependent artifact from the raw GitHub location.  The sample scripts do not privately stage artifacts from adjacent solutions.  In practice, it is expected that this technique would be rarely used because the main template being deployed has a dependency on a shared template that may have a different lifecycle, resulting in unexpected changes in the configuration.  In a real-world scenario, all the templates that make up the deployment should be under the same span of control and could be staged together.  Simply put share the same parent.  This will work for a shared environment of the repository, but a best practice would be to refactor these samples to ensure a proper configuration is maintained._
+## Outputs
 
-
-It is possible to deploy a nested template based on parameter input. The parameter input is used to concatenate the relative path to a nested template. Based on the user input a different template is deployed. This enables a conditional nested template deployment. The paramater is used to define the name of the template. Ensure the allowedValues of the input parameter match the names of the nested templates.
-
-### Nested templates design for more advanced scenarios
-
-When you decide to decompose your template design into multiple nested templates, the following guidelines will help to standardize the design. These guidelines are based on the [best practices for designing Azure Resource Manager templates](https://azure.microsoft.com/en-us/documentation/articles/best-practices-resource-manager-design-templates/) documentation.
-For this guidance a deployment of a SharePoint farm is used as an example. The SharePoint farm consists of multiple tiers. Each tier can be created with high availability. The recommended design consists of the following templates.
-
-+ **Main template** (azuredeploy.json). Used for the input parameters.
-+ **Shared resouces template**. Deploys the shared resources that all other resources use (e.g. virtual network, availability sets). The expression dependsOn enforces that this template is deployed before the other templates.
-+ **Optional resources template**. Conditionally deploys resources based on a parameter (e.g. a jumpbox)
-+ **Member resources templates**. Each within an application tier within has its own configuration. Within a tier different instance types can be defined. (e.g. first instance creates a new cluster, additional instances are added to the existing cluster). Each instance type will have its own deployment template.
-+ **Scripts**. Widely reusable scripts are applicable for each instance type (e.g. initialize and format additional disks). Custom scripts are created for specific customization purpose are different per instance type.
-
-![alt text](images/nestedTemplateDesign.png "Nested templates design")
- 
-The **main template** is stored in the **root** of the folder, the **other templates** are stored in the **nestedtemplates** folder. The scripts are stored in the **scripts** folder.
+Outputs are recommended for any information that will enable easy use of a sample, for example endpoints, ip addresses, etc.  Secrets (passwords, account keys) should never be used in an output as the outputs from a deployment may available to users with read-only access.

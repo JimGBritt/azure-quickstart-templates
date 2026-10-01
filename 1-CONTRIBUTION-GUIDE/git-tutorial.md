@@ -1,6 +1,6 @@
 # Azure Resource Manager QuickStart Templates
 
-This repo contains all currently available Azure Resource Manager templates contributed by the community. A searchable template index is maintained at https://azure.microsoft.com/en-us/documentation/templates/.
+This repo contains all currently available Azure Resource Manager templates contributed by the community. A searchable template index is maintained at https://azure.microsoft.com/documentation/templates/.
 The following information is relevant to get started with contributing to this repository.
 
 + [**Contribution guide**](/1-CONTRIBUTION-GUIDE/README.md#contribution-guide). Describes the minimal guidelines for contributing.
@@ -28,19 +28,20 @@ You probably heard of Git before, but it's possible that you haven't used it. Wr
 
 This guide assumes you're new to git and that you're using a Windows computer. If you're using Linux OSX, its very similar, with the exception of Windows-specifics such as installation of git.
 
-#### Table of Contents
+### Table of Content
+
 - [Git Tutorial for ARM Template Submissions](#git-tutorial-for-the-pct-arm-templates)
-    - [Get Git](#get-git)
-    - [Fork the Repository to your Account](#fork-the-repository-to-your-account)
-    - [Clone the template Repository to your Machine](#clone-the-arm-template-repository-to-your-machine)
-    - [Creating a new Branch for your template](#creating-a-new-branch-for-your-template)
-    - [Staging your Changes for a Commit](#staging-your-changes-for-a-commit)
-    - [Commit your Changes](#commit-your-changes)
-    - [Push your new Branch to Your Fork on GitHub](#push-your-new-branch-to-your-fork-on-github)
-    - [Make a Pull Request](#make-a-pull-request)
-    - [Updating Pull Requests](#updating-pull-requests)
-    - [Squashing Commits](#squashing-commits)
-    - [Syncing Your Fork](#syncing-your-fork)
+  - [Get Git](#get-git)
+  - [Fork the Repository to your Account](#fork-the-repository-to-your-account)
+  - [Clone the template Repository to your Machine](#clone-the-arm-template-repository-to-your-machine)
+  - [Creating a new Branch for your template](#creating-a-new-branch-for-your-template)
+  - [Staging your Changes for a Commit](#staging-your-changes-for-a-commit)
+  - [Commit your Changes](#commit-your-changes)
+  - [Push your new Branch to Your Fork on GitHub](#push-your-new-branch-to-your-fork-on-github)
+  - [Make a Pull Request](#make-a-pull-request)
+  - [Updating Pull Requests](#updating-pull-requests)
+  - [Squashing Commits](#squashing-commits)
+  - [Syncing Your Fork](#syncing-your-fork)
 
 ### Get Git
 If you don't have Git installed, head over to the official [Git Download page and download it](https://git-scm.com/download/win). Once installed and downloaded, you might also want to install [Posh Git](https://github.com/dahlbyk/posh-git). If you're already using Chocolatey or Windows 10's package manager to install software, you can simply run the following command from an elevated PowerShell (right click, select 'Run as Administrator'):
@@ -75,17 +76,17 @@ Before we can get started, you need to register with GitHub. Either create or lo
 
 ![Fork the repo](images/git1.png)
 
-This will create a copy of the repository as it exists in the `azure` organization (hence called azure/azure-quick-start-templates) in your own account.
+This will create a copy of the repository as it exists in the `azure` organization (hence called azure/azure-quickstart-templates) in your own account.
 
-### Clone the Azure Quick-start Template Repository to your Machine
-Visit your fork (which should be at github.com/{your_name}/azure-quick-start-templates) and copy the "HTTPS Clone URL". Using this URL, you're able to `clone` the repository, which is really just a fancy way of saying "download the whole repository, including its history and information about its origin".
+### Clone the Azure QuickStart Templates Repository to your Machine
+Visit your fork (which should be at github.com/{your_name}/azure-quickstart-templates) and copy the "HTTPS Clone URL". Using this URL, you're able to `clone` the repository, which is really just a fancy way of saying "download the whole repository, including its history and information about its origin".
 
 ![Clone the repo](images/git2.png)
 
 Now that you have Git installed, open up PowerShell. If everything worked correctly, you should be able to run `git --version`. If that works, navigate to a folder where you'd like to keep the `arm-templates` repository (and hence, all your arm templates). To get a copy of your fork onto your local machine, run:
 
 ```
-git clone https://github.com/{YOUR_USERNAME}/azure-quick-start-templates
+git clone https://github.com/{YOUR_USERNAME}/azure-quickstart-templates
 ```
 
 This should generate output that looks roughly like this:
@@ -96,7 +97,7 @@ Copyright (C) 2015 Microsoft Corporation. All rights reserved.
 
 C:\Users\feriese> git --version
 git version 1.9.5.msysgit.1
-C:\Users\feriese> git clone https://github.com/sedouard/azure-quick-start-templates
+C:\Users\feriese> git clone https://github.com/sedouard/azure-quickstart-templates
 Cloning into 'arm-templates'...
 remote: Counting objects: 1027, done.
 remote: Compressing objects: 100% (4/4), done.
@@ -117,7 +118,7 @@ git remote -v
 The output should be:
 
 ```
-C:\Users\sedouard\azure-quick-start-templates [master]> git remote -v
+C:\Users\sedouard\azure-quickstart-templates [master]> git remote -v
 origin  https://github.com/sedouard/arm-templates (fetch)
 origin  https://github.com/sedouard/arm-templates (push)
 ```
@@ -125,7 +126,7 @@ origin  https://github.com/sedouard/arm-templates (push)
 As you can see, we're connected to your fork of the arm-templates (called "origin"), but currently not connected to the upstream version living in `catalystcode/arm-templates`. To change that, we can simply add remotes. Run the following command:
 
 ```
-git remote add upstream https://github.com/azure/azure-quick-start-templates
+git remote add upstream https://github.com/Azure/azure-quickstart-templates
 ```
 
 Entering `git remote -v` again should give you both repositories - both yours (called "origin") and the one for the whole team (called "upstream").
@@ -218,7 +219,7 @@ git push -f
 
 Please note the advice further up [about default push behavior in old/outdated versions of Git](#ensure-a-safe-push-behavior).
 
-When we're ready to merge your Pull Request, it is very likely we may ask you to "sqash your commits". To do so, read on below.
+When we're ready to merge your Pull Request, it is very likely we may ask you to "squash your commits". To do so, read on below.
 
 ### Squashing Commits
 You should commit often. It's a great backup and safety net in case you mess up. At the same time, you don't want your pull request to contain all your commits - in practice, a pull request should contain one commit. There are obvious exceptions to this rule (like epic projects - think 'Windows support for Docker'), but your little template should most definitely be just one commit. For that to happen, we need to rewrite history.
@@ -268,7 +269,7 @@ Then, once you're done, update the branch on your own fork in GitHub. Push with 
 git push -f
 ```
 
-If you never pushed the branch before, you can use the normal push command - there's no history that we need to overwrite with the `f` paramter.
+If you never pushed the branch before, you can use the normal push command - there's no history that we need to overwrite with the `f` parameter.
 
 ```
 git push -u origin NAME_OF_YOUR_BRANCH

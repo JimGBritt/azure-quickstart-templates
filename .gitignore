@@ -4,8 +4,18 @@ apprenda60-small/provisionApprendaTestScript.ps1
 apprenda60-express/provisionApprendaTestScript.ps1
 
 # local template parameters
-elasticsearch/azuredeploy.parameters.local.*
-elasticsearch-jmeter/azuredeploy.parameters.local.*
+**/azuredeploy.parameters.local.json
+**/azuredeploy.parameters.dev.json
+**/azuredeploy.parameters.?.json
+**/prereq.azuredeploy.parameters.?.json
+**/prereq.azuredeploy.parameters.dev.json
+
+# secrets
+**/*.pfx
+**/*.cer
+
+# Visual Studio autosaves
+.vs
 
 # emacs autosaves
 auto-save-list
@@ -21,5 +31,13 @@ org-mode-config.el
 .DS_Store
 org-clock-save.el
 emacs-config.el
-.vscode/settings.json
+.vscode
+node_modules
+Nese_OMS_NEstedforOMSWS.json
+test/template-validation-tests/package-lock.json
+test/template-validation-tests/mochawesome-report/*
 
+test/AzTemplateToolKit.zip
+test/arm-template-toolkit.zip
+
+quickstarts/microsoft.customproviders/custom-rp-with-function/src/obj/**

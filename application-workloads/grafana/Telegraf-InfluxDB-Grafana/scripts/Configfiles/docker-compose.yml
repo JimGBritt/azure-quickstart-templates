@@ -1,0 +1,74 @@
+version: '2'
+
+volumes:
+    grafana_data: {}
+    influxdb_data: {}
+
+services:
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    depends_on:
+      - influxdb
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    env_file:
+      - config.monitoring
+
+    # ⚠️ The HTTP_PASS and INFLUXDB_PASS values below are placeholder and intended for demonstration only.
+    # Update these credentials with secure values when building the production image.
+
+    # Security recommendations:
+
+    # ✅ Load sensitive values from a .env file or use a secret manager/vault solution.
+    #    This keeps credentials out of version control and supports secure deployments.
+
+    # 🔒 Enforce strong password policies for all administrative users.
+    #    Use long, complex passphrases and avoid reuse across services.
+
+    # 🔐 Avoid mounting docker.sock, /proc, /sys, or host-level paths unless absolutely necessary.
+    #    These can expose the host to privilege escalation risks.
+
+    # 🔐 Protect Grafana and InfluxDB endpoints with authentication before deploying.
+    #    Consider OAuth2, LDAP, or token-based access control to limit unauthorized use.
+
+    # 🛡️ Treat this configuration as sensitive even in dev/test environments.
+    #    Leaks in non-prod setups can still lead to compromise.
+    environment:
+      - HTTP_USER=admin
+      - HTTP_PASS=admin
+      - INFLUXDB_HOST=influxsrv
+      - INFLUXDB_PORT=8086
+      - INFLUXDB_NAME=kafka
+      - INFLUXDB_USER=root
+      - INFLUXDB_PASS=root
+
+  influxdb:
+    image: tutum/influxdb
+    container_name: influxdb
+    ports:
+      - "8083:8083"
+      - "8086:8086"
+      - "8090:8090"
+    volumes:
+      - influxdb_data:/data/influxdb
+    env_file:
+      - 'env.influxdb'
+     
+  telegraf:
+    image: telegraf:latest
+    container_name: telegraf
+    links:
+      - influxdb
+    environment:
+      - HOST_ETC=/rootfs/etc
+      - HOST_SYS=/rootfs/sys
+      - HOST_PROC=/rootfs/proc
+    volumes:
+      - ./telegraf.conf:/etc/telegraf/telegraf.conf:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro 
+      - /sys:/rootfs/sys:ro
+      - /proc:/rootfs/proc:ro
+      - /etc:/rootfs/etc:ro
